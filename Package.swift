@@ -10,7 +10,7 @@ let package = Package(
     .library(name: "DistributedLockValkey", targets: ["DistributedLockValkey"])
   ],
   dependencies: [
-    .package(url: "https://github.com/swift-server/RediStack.git", from: "1.0.0"),
+    .package(url: "https://github.com/valkey-io/valkey-swift", from: "1.0.0"),
     .package(url: "https://github.com/rosecoder/distributed-lock-swift.git", from: "0.0.3"),
   ],
   targets: [
@@ -18,12 +18,15 @@ let package = Package(
       name: "DistributedLockValkey",
       dependencies: [
         .product(name: "DistributedLock", package: "distributed-lock-swift"),
-        .product(name: "RediStack", package: "RediStack"),
+        .product(name: "Valkey", package: "valkey-swift"),
       ]
     ),
     .testTarget(
       name: "DistributedLockValkeyTests",
-      dependencies: ["DistributedLockValkey"]
+      dependencies: [
+        "DistributedLockValkey",
+        .product(name: "Valkey", package: "valkey-swift"),
+      ]
     ),
   ]
 )

@@ -1,12 +1,12 @@
 import DistributedLock
 import Logging
-@preconcurrency import RediStack
+import Valkey
 
-public final class RedisLock: DistributedLock {
+public final class ValkeyLock: DistributedLock {
 
-  let client: RedisClient
+  let client: ValkeyClient
 
-  public init(client: RedisClient) {
+  public init(client: ValkeyClient) {
     self.client = client
   }
 
@@ -27,13 +27,14 @@ public final class RedisLock: DistributedLock {
   private func setLock(key: Key, value: String, tryCount: UInt8 = 0, logger: Logger)
     async throws
   {
-    let wasSet = try await client.set(
-      redisKey(key),
-      to: value,
-      onCondition: .keyDoesNotExist,
+    // SET with NX and EX: success is non-nil "OK" reply; nil means key already exists.
+    let result = try await client.set(
+      valkeyKey(key),
+      value: value,
+      condition: .nx,
       expiration: .seconds(timeoutSeconds)
-    ).get()
-    if wasSet == .ok {
+    )
+    if result != nil {
       return
     }
 
@@ -57,10 +58,10 @@ public final class RedisLock: DistributedLock {
       logger.error("Lock execution took longer than timeout: \(key)")
       return
     }
-    _ = try await client.delete(redisKey(key)).get()
+    _ = try await client.del(keys: [valkeyKey(key)])
   }
 
-  private func redisKey(_ key: Key) -> RedisKey {
-    RedisKey("lock/" + key.rawValue)
+  private func valkeyKey(_ key: Key) -> ValkeyKey {
+    ValkeyKey("lock/" + key.rawValue)
   }
 }

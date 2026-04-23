@@ -1,9 +1,9 @@
 import DistributedLock
 import DistributedLockValkey
 import Foundation
-import NIO
-@preconcurrency import RediStack
+import Logging
 import Testing
+import Valkey
 
 @Suite struct LockTests {
 
@@ -11,28 +11,37 @@ import Testing
     let host = ProcessInfo.processInfo.environment["REDIS_HOST"] ?? "127.0.0.1"
     let port = ProcessInfo.processInfo.environment["REDIS_PORT"].flatMap { Int($0) } ?? 6379
 
-    let client = RedisConnectionPool(
-      configuration: .init(
-        initialServerConnectionAddresses: [try .makeAddressResolvingHost(host, port: port)],
-        maximumConnectionCount: .maximumActiveConnections(1),
-        connectionFactoryConfiguration: .init()
-      ),
-      boundEventLoop: MultiThreadedEventLoopGroup.singletonMultiThreadedEventLoopGroup.next()
+    let logger = Logger(label: "DistributedLockValkeyTests")
+    let client = ValkeyClient(
+      .hostname(host, port: port),
+      logger: logger
     )
+    async let _ = client.run()
 
-    let lock = RedisLock(client: client)
+    let lock = ValkeyLock(client: client)
 
-    #expect(try await client.get("lock/a").get().string?.isEmpty != false)
+    let keyA = ValkeyKey("lock/a")
+    _ = try await client.del(keys: [keyA])
+    #expect(stringFromBulk(try await client.get(keyA))?.isEmpty != false)
 
-    try await lock.withLock("a") {
-      Task {
-        #expect(try await client.get("lock/a").get().string?.isEmpty == false)
+    // Start a contending lock in the background; it cannot proceed until the outer withLock returns.
+    let nested = try await lock.withLock("a") {
+      let t = Task {
+        #expect(stringFromBulk(try await client.get(keyA))?.isEmpty == false)
         try await lock.withLock("a") {
           try await Task.sleep(for: .milliseconds(100))
         }
       }
-
       try await Task.sleep(for: .milliseconds(100))
+      return t
     }
+    _ = try await nested.value
+  }
+}
+
+/// Returns `nil` when the key is absent; otherwise a UTF-8 string from the bulk value.
+private func stringFromBulk(_ value: RESPBulkString?) -> String? {
+  value.map { bulk in
+    String(decoding: bulk, as: UTF8.self)
   }
 }
