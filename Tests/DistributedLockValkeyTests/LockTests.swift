@@ -1,5 +1,5 @@
 import DistributedLock
-import DistributedLockRedis
+import DistributedLockValkey
 import Foundation
 import NIO
 @preconcurrency import RediStack

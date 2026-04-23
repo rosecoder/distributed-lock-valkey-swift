@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-  name: "distributed-lock-redis",
+  name: "distributed-lock-valkey",
   platforms: [
     .macOS(.v15)
   ],
   products: [
-    .library(name: "DistributedLockRedis", targets: ["DistributedLockRedis"])
+    .library(name: "DistributedLockValkey", targets: ["DistributedLockValkey"])
   ],
   dependencies: [
     .package(url: "https://github.com/swift-server/RediStack.git", from: "1.0.0"),
@@ -15,15 +15,15 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "DistributedLockRedis",
+      name: "DistributedLockValkey",
       dependencies: [
         .product(name: "DistributedLock", package: "distributed-lock-swift"),
         .product(name: "RediStack", package: "RediStack"),
       ]
     ),
     .testTarget(
-      name: "DistributedLockRedisTests",
-      dependencies: ["DistributedLockRedis"]
+      name: "DistributedLockValkeyTests",
+      dependencies: ["DistributedLockValkey"]
     ),
   ]
 )
