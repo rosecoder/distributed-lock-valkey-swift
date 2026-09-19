@@ -26,3 +26,23 @@ try await lock.withLock("my-resource") {
 ```
 
 It also provides logging and tracing support for the time the lock is waiting to be acquired.
+
+## Lock timeout
+
+A lock key expires on its own so a crashed holder cannot block the resource forever. The timeout is
+per lock, since it belongs to the critical section rather than to the client, and defaults to 30
+seconds:
+
+```swift
+try await lock.withLock("a-long-running-job", timeout: .seconds(600)) {
+  // operations that should be protected by the lock
+}
+```
+
+Pick a timeout above the longest critical section you expect. An operation that runs longer than the
+timeout loses its lock while still running, and another holder can then acquire it concurrently —
+`unlock` detects this, logs an error, and leaves the key alone rather than releasing a lock it no
+longer owns.
+
+Valkey expires keys at whole-second granularity, so the timeout must be at least one second and any
+sub-second part of it is truncated.
